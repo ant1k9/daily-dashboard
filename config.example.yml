@@ -1,12 +1,14 @@
 tabs:
   - name: "Echo"
     command: "echo"
+    color: "white"
     env: []
     args:
       - "Cool"
 
   - name: "Tree"
     command: "tree"
+    color: "green"
     env: []
     args:
       - "-L"

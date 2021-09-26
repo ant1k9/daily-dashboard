@@ -1,6 +1,7 @@
 #[allow(dead_code)]
 mod event;
 mod tabstate;
+mod utils;
 
 use event::{Event, Events};
 use serde::Deserialize;
@@ -17,7 +18,6 @@ use tui::{
     Terminal,
 };
 
-
 #[derive(Deserialize)]
 struct AppConfig {
     tabs: Vec<TabConfig>,
@@ -27,6 +27,7 @@ struct AppConfig {
 struct TabConfig {
     name: String,
     command: String,
+    color: Option<String>,
     env: Vec<EnvKey>,
     args: Vec<String>,
 }
@@ -42,8 +43,7 @@ struct App {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let contents = fs::read_to_string("config.yml")
-        .expect("Something went wrong reading the file");
+    let contents = fs::read_to_string("config.yml").expect("Something went wrong reading the file");
     let config: AppConfig = serde_yaml::from_str(&contents).unwrap();
 
     // Terminal initialization
@@ -116,7 +116,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .style(Style::default().fg(Color::Cyan))
                 .borders(Borders::ALL);
             let paragraph = Paragraph::new(output)
-                .style(Style::default().fg(Color::Yellow))
+                .style(Style::default().fg(utils::color_from_str(&tab.color)))
                 .block(block);
             f.render_widget(paragraph, chunks[1]);
         })?;
