@@ -1,0 +1,13 @@
+tabs:
+  - name: "Echo"
+    command: "echo"
+    env: []
+    args:
+      - "Cool"
+
+  - name: "Tree"
+    command: "tree"
+    env: []
+    args:
+      - "-L"
+      - "2"
