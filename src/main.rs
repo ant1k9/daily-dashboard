@@ -43,7 +43,25 @@ struct App {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let contents = fs::read_to_string("config.yml").expect("Something went wrong reading the file");
+    let matches = clap::App::new("daily-dashboard")
+        .arg(
+            clap::Arg::with_name("config")
+                .short("c")
+                .long("config")
+                .value_name("FILE")
+                .help("Sets a custom config file")
+                .takes_value(true),
+        )
+        .get_matches();
+
+    let default_config_path = dirs::home_dir()
+        .unwrap()
+        .join(std::path::Path::new(".config/daily-dashboard/config.yml"));
+    let config = matches
+        .value_of("config")
+        .unwrap_or(default_config_path.to_str().unwrap());
+
+    let contents = fs::read_to_string(config).expect("Something went wrong reading the file");
     let config: AppConfig = serde_yaml::from_str(&contents).unwrap();
 
     // Terminal initialization
@@ -59,84 +77,115 @@ fn main() -> Result<(), Box<dyn Error>> {
     for tab in config.tabs.iter() {
         tabs.push(tab.name.to_string());
     }
-    // App
+
     let mut app = App {
         tabs: tabstate::TabsState::new(tabs),
     };
 
-    // Main loop
     loop {
-        terminal.draw(|f| {
-            let size = f.size();
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .margin(1)
-                .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
-                .split(size);
+        terminal.draw(|f| draw(f, &app, &config))?;
+        if let event::Continuation::Finish = listen_events(&mut app, &events) {
+            return Ok(());
+        }
+    }
+}
 
-            let block = Block::default().style(Style::default().fg(Color::Black));
-            f.render_widget(block, size);
+fn draw(
+    f: &mut tui::Frame<
+        '_,
+        tui::backend::TermionBackend<
+            termion::screen::AlternateScreen<
+                termion::input::MouseTerminal<termion::raw::RawTerminal<std::io::Stdout>>,
+            >,
+        >,
+    >,
+    app: &App,
+    config: &AppConfig,
+) {
+    let size = f.size();
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(1)
+        .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+        .split(size);
 
-            let titles = app
-                .tabs
-                .titles
-                .iter()
-                .map(|t| {
-                    let (first, rest) = t.split_at(1);
-                    Spans::from(vec![
-                        Span::styled(first, Style::default().fg(Color::Yellow)),
-                        Span::styled(rest, Style::default().fg(Color::Green)),
-                    ])
-                })
-                .collect();
+    let block = Block::default().style(Style::default().fg(Color::Black));
+    f.render_widget(block, size);
 
-            let tabs = Tabs::new(titles)
-                .block(Block::default().borders(Borders::ALL).title("Tabs"))
-                .select(app.tabs.index)
-                .style(Style::default().fg(Color::Cyan))
-                .highlight_style(
-                    Style::default()
-                        .add_modifier(Modifier::BOLD)
-                        .bg(Color::Black),
-                );
-            f.render_widget(tabs, chunks[0]);
+    let titles = app
+        .tabs
+        .titles
+        .iter()
+        .map(|t| {
+            let (first, rest) = t.split_at(1);
+            Spans::from(vec![
+                Span::styled(first, Style::default().fg(Color::Yellow)),
+                Span::styled(rest, Style::default().fg(Color::Green)),
+            ])
+        })
+        .collect();
 
-            let tab = &config.tabs[app.tabs.index];
+    let tabs = Tabs::new(titles)
+        .block(Block::default().borders(Borders::ALL).title("Tabs"))
+        .select(app.tabs.index)
+        .style(Style::default().fg(Color::Cyan))
+        .highlight_style(
+            Style::default()
+                .add_modifier(Modifier::BOLD)
+                .bg(Color::Black),
+        );
+    f.render_widget(tabs, chunks[0]);
 
-            let mut init = Command::new(tab.command.to_string());
-            let mut cmd = init.args(tab.args.iter());
-            for env in tab.env.iter() {
-                cmd = cmd.env(env.key.to_string(), env.value.to_string());
-            }
-            let run = cmd.output().expect("failed to execute process");
-            let output = String::from_utf8(run.stdout).unwrap();
+    let tab = &config.tabs[app.tabs.index];
 
-            let block = Block::default()
-                .title(app.tabs.titles[app.tabs.index].to_string())
-                .style(Style::default().fg(Color::Cyan))
-                .borders(Borders::ALL);
-            let paragraph = Paragraph::new(output)
-                .style(Style::default().fg(utils::color_from_str(&tab.color)))
-                .block(block);
-            f.render_widget(paragraph, chunks[1]);
-        })?;
+    let mut init = Command::new(tab.command.to_string());
+    let mut cmd = init.args(tab.args.iter());
+    for env in tab.env.iter() {
+        cmd = cmd.env(env.key.to_string(), env.value.to_string());
+    }
+    let run = cmd.output().expect("failed to execute process");
+    let output = String::from_utf8(run.stdout).unwrap();
 
-        loop {
-            if let Event::Input(input) = events.next()? {
-                match input {
-                    Key::Char('q') => {
-                        return Ok(());
-                    }
-                    Key::Right => {
-                        app.tabs.next();
-                        break;
-                    }
-                    Key::Left => {
-                        app.tabs.previous();
-                        break;
-                    }
-                    _ => {}
+    let block = Block::default()
+        .title(app.tabs.titles[app.tabs.index].to_string())
+        .style(Style::default().fg(Color::Cyan))
+        .borders(Borders::ALL);
+    let paragraph = Paragraph::new(output)
+        .style(Style::default().fg(utils::color_from_str(&tab.color)))
+        .block(block);
+    f.render_widget(paragraph, chunks[1]);
+}
+
+fn listen_events(app: &mut App, events: &event::Events) -> event::Continuation {
+    loop {
+        if let Event::Input(input) = events.next().unwrap() {
+            match input {
+                Key::Char('q') => {
+                    return event::Continuation::Finish;
                 }
+                Key::Left => {
+                    app.tabs.previous();
+                    return event::Continuation::Continue;
+                }
+                Key::Right => {
+                    app.tabs.next();
+                    return event::Continuation::Continue;
+                }
+                Key::Char('1')
+                | Key::Char('2')
+                | Key::Char('3')
+                | Key::Char('4')
+                | Key::Char('5')
+                | Key::Char('6')
+                | Key::Char('7')
+                | Key::Char('8')
+                | Key::Char('9') => {
+                    if let Key::Char(x) = input {
+                        app.tabs.jump(x.to_digit(10).unwrap() as usize);
+                        return event::Continuation::Continue;
+                    }
+                }
+                _ => {}
             }
         }
     }

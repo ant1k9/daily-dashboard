@@ -10,3 +10,5 @@ termion = "1.5.6"
 tui = "0.15.0"
 serde = { version = "1.0", features = ["derive"]  }
 serde_yaml = "0.8.21"
+clap = "2.33.3"
+dirs = "1.0.4"

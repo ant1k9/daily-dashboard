@@ -6,6 +6,11 @@ use std::time::Duration;
 use termion::event::Key;
 use termion::input::TermRead;
 
+pub enum Continuation {
+    Continue,
+    Finish,
+}
+
 pub enum Event<I> {
     Input(I),
     Tick,
