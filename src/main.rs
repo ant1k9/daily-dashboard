@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .join(std::path::Path::new(".config/daily-dashboard/config.yml"));
     let config = matches
         .value_of("config")
-        .unwrap_or(default_config_path.to_str().unwrap());
+        .unwrap_or_else(|| default_config_path.to_str().unwrap());
 
     let contents = fs::read_to_string(config).expect("Something went wrong reading the file");
     let config: AppConfig = serde_yaml::from_str(&contents).unwrap();

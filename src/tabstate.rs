@@ -9,7 +9,10 @@ impl TabsState {
         for (title, idx) in titles.iter().zip(1..titles.len() + 1) {
             indexed_titles.push(format!("{}.{}", idx, title));
         }
-        TabsState { titles: indexed_titles, index: 0 }
+        TabsState {
+            titles: indexed_titles,
+            index: 0,
+        }
     }
 
     pub fn next(&mut self) {
@@ -27,11 +30,10 @@ impl TabsState {
     pub fn jump(&mut self, tab: usize) {
         if tab >= self.titles.len() {
             self.index = self.titles.len() - 1;
-            return
+            return;
         }
         while self.index != tab - 1 {
             self.next();
         }
     }
 }
-
