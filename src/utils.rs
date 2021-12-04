@@ -1,5 +1,9 @@
 use tui::style::Color;
 
+pub fn default_true() -> bool {
+    true
+}
+
 pub fn color_from_str(color: &Option<String>) -> Color {
     match color {
         Some(value) => match value.as_str() {

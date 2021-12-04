@@ -23,16 +23,19 @@ struct AppConfig {
     tabs: Vec<TabConfig>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct TabConfig {
     name: String,
     command: String,
     color: Option<String>,
+    #[serde(default)]
     env: Vec<EnvKey>,
+    #[serde(default = "utils::default_true")]
+    enabled: bool,
     args: Vec<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct EnvKey {
     key: String,
     value: String,
@@ -62,7 +65,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|| default_config_path.to_str().unwrap());
 
     let contents = fs::read_to_string(config).expect("Something went wrong reading the file");
-    let config: AppConfig = serde_yaml::from_str(&contents).unwrap();
+    let mut config: AppConfig = serde_yaml::from_str(&contents).unwrap();
+    config.tabs = config
+        .tabs
+        .iter()
+        .filter_map(|tab| if tab.enabled { Some(tab.clone()) } else { None })
+        .collect();
 
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
