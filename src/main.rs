@@ -73,9 +73,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect();
 
     // Terminal initialization
-    let stdout = io::stdout().into_raw_mode()?;
-    let stdout = MouseTerminal::from(stdout);
-    let stdout = AlternateScreen::from(stdout);
+    let stdout = AlternateScreen::from(MouseTerminal::from(io::stdout().into_raw_mode()?));
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -171,11 +169,11 @@ fn listen_events(app: &mut App, events: &event::Events) -> event::Continuation {
                 Key::Char('q') => {
                     return event::Continuation::Finish;
                 }
-                Key::Left => {
+                Key::Left | Key::Char('j') | Key::Char('h') => {
                     app.tabs.previous();
                     return event::Continuation::Continue;
                 }
-                Key::Right => {
+                Key::Right | Key::Char('k') | Key::Char('l') => {
                     app.tabs.next();
                     return event::Continuation::Continue;
                 }
