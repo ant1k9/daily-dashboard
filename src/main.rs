@@ -144,10 +144,10 @@ fn draw(
 
     let tab = &config.tabs[app.tabs.index];
 
-    let mut init = Command::new(tab.command.to_string());
+    let mut init = Command::new(&tab.command);
     let mut cmd = init.args(tab.args.iter());
     for env in tab.env.iter() {
-        cmd = cmd.env(env.key.to_string(), env.value.to_string());
+        cmd = cmd.env(&env.key, &env.value);
     }
     let run = cmd.output().expect("failed to execute process");
     let output = String::from_utf8(run.stdout).unwrap();
